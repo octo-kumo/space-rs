@@ -108,6 +108,7 @@ impl World {
             .size(vec2(200., 20.))
             .ui(&mut root_ui(), &mut self.settings.n_cap);
 
+        root_ui().label(vec2(5., screen_height() - 15.), "F1 to toggle UI");
         root_ui().pop_skin();
         handled
     }
@@ -120,7 +121,9 @@ impl World {
             momentum += body.v * body.m;
             mass += body.m;
         }
-        center /= mass;
+        if mass != 0. {
+            center /= mass;
+        }
         if self.settings.follow {
             self.camera.target = center;
         }

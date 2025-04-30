@@ -21,23 +21,24 @@ async fn main() {
 
     world.add_body(Body::new(0., 0., 0., 0., 6., 0.3));
     world.add_body(Body::new(1., 0., 0., 1.8, 0.05, 0.1));
-
+    let mut show_ui = true;
     loop {
         set_camera(&world.camera);
 
         clear_background(BLACK);
-        let dt = 0.008; //get_frame_time();
-                        // let start = Instant::now();
+        let dt = 0.008;
         world.update(dt);
-        // println!("physics: {:?}", start.elapsed());
-        // let start = Instant::now();
         world.move_and_draw(dt);
-        // println!("draw: {:?}", start.elapsed());
         pan.draw_add();
         set_default_camera();
-        draw_fps();
-        if !world.draw_ui() {
-            if !Rect::new(0., 120., 200., 60.).contains(Vec2::from(mouse_position())) {
+        if is_key_pressed(KeyCode::F1) {
+            show_ui = !show_ui;
+        }
+        if show_ui {
+            draw_fps();
+        }
+        if !show_ui || !world.draw_ui() {
+            if !show_ui || !Rect::new(0., 120., 200., 60.).contains(Vec2::from(mouse_position())) {
                 pan.handle_zoom(&mut world.camera);
                 pan.handle_pan(&mut world.camera);
                 pan.handle_add(&mut world);
@@ -48,7 +49,9 @@ async fn main() {
         pan.ar = world.settings.n_radius.parse::<f32>().unwrap_or(pan.ar);
         pan.am = world.settings.n_mass.parse::<f32>().unwrap_or(pan.am);
         chart.record(get_frame_time());
-        chart.draw((screen_width() - 100., 5., 100., 50.0), 120.0, 1., GREEN);
+        if show_ui {
+            chart.draw((screen_width() - 100., 5., 100., 50.0), 120.0, 1., GREEN);
+        }
         next_frame().await
     }
 }
