@@ -85,22 +85,26 @@ impl World {
             self.settings.follow = !self.settings.follow;
             handled = true;
         }
+        if root_ui().button(vec2(0., 100.), "clear bodies") {
+            self.bodies.clear();
+            handled = true;
+        }
         InputText::new(hash!())
             .filter_numbers()
             .label("mass")
-            .position(vec2(0., 100.))
+            .position(vec2(0., 120.))
             .size(vec2(200., 20.))
             .ui(&mut root_ui(), &mut self.settings.n_mass);
         InputText::new(hash!())
             .filter_numbers()
             .label("radius")
-            .position(vec2(0., 100.))
+            .position(vec2(0., 120.))
             .size(vec2(200., 20.))
             .ui(&mut root_ui(), &mut self.settings.n_radius);
         InputText::new(hash!())
             .filter_numbers()
             .label("soft n-cap")
-            .position(vec2(0., 100.))
+            .position(vec2(0., 120.))
             .size(vec2(200., 20.))
             .ui(&mut root_ui(), &mut self.settings.n_cap);
 
