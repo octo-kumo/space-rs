@@ -1,18 +1,29 @@
 use crate::body::{gravity, Body};
+use crate::style::get_style;
+use macroquad::hash;
 use macroquad::prelude::*;
 use macroquad::ui::root_ui;
+use macroquad::ui::widgets::InputText;
 
-struct Settings {
+pub struct Settings {
     pub collisions: bool,
     pub tidal: bool,
     pub follow: bool,
+    pub n_mass: String,
+    pub n_radius: String,
+}
+pub struct Statistics {
+    pub momentum: Vec2,
+    pub mass: f32,
+    pub center: Vec2,
 }
 
 pub struct World {
     pub bodies: Vec<Body>,
     pub camera: Camera2D,
     draws: i32,
-    settings: Settings,
+    pub settings: Settings,
+    pub stats: Statistics,
 }
 
 impl World {
@@ -27,36 +38,81 @@ impl World {
                 collisions: true,
                 tidal: true,
                 follow: false,
+                n_mass: String::from("0.1"),
+                n_radius: String::from("0.1"),
+            },
+            stats: Statistics {
+                momentum: vec2(0., 0.),
+                mass: 0.0,
+                center: vec2(0., 0.),
             },
         }
     }
 
-    pub fn draw_ui(&mut self) {
-        root_ui().label(vec2(0., 20.), &format!("draws: {}", self.draws));
+    pub fn draw_ui(&mut self) -> bool {
+        let skin = get_style();
+        root_ui().push_skin(&skin);
+        let mut handled = false;
+        root_ui().label(
+            vec2(0., 20.),
+            &format!("draws={} n={}", self.draws, self.bodies.len()),
+        );
+        root_ui().label(vec2(100., 20.), &format!("mass={}", self.stats.mass));
+        root_ui().label(
+            vec2(0., 30.),
+            &format!(
+                "p=({}, {})",
+                fmt_coord(self.stats.momentum.x),
+                fmt_coord(self.stats.momentum.y)
+            ),
+        );
         if root_ui().button(
             vec2(0., 40.),
             format!("collision={}", self.settings.collisions),
         ) {
             self.settings.collisions = !self.settings.collisions;
+            handled = true;
         }
         if root_ui().button(vec2(0., 60.), format!("tidal={}", self.settings.tidal)) {
             self.settings.tidal = !self.settings.tidal;
+            handled = true;
         }
         if root_ui().button(vec2(0., 80.), format!("follow={}", self.settings.follow)) {
             self.settings.follow = !self.settings.follow;
+            handled = true;
         }
+        let in_m = InputText::new(hash!());
+        in_m.filter_numbers()
+            .label("mass")
+            .position(vec2(0., 100.))
+            .size(vec2(200., 20.))
+            .ui(&mut root_ui(), &mut self.settings.n_mass);
+        let in_r = InputText::new(hash!());
+        in_r.filter_numbers()
+            .label("radius")
+            .position(vec2(0., 100.))
+            .size(vec2(200., 20.))
+            .ui(&mut root_ui(), &mut self.settings.n_radius);
+
+        root_ui().pop_skin();
+        handled
     }
     pub fn move_and_draw(&mut self, dt: f32) {
+        let mut center = Vec2::new(0., 0.);
+        let mut momentum = Vec2::new(0., 0.);
+        let mut mass = 0.;
+        for body in &self.bodies {
+            center += body.p * body.m;
+            momentum += body.v * body.m;
+            mass += body.m;
+        }
+        center /= mass;
         if self.settings.follow {
-            let mut center = Vec2::new(0., 0.);
-            let mut mass = 0.;
-            for body in &self.bodies {
-                center += body.p * body.m;
-                mass += body.m;
-            }
-            center /= mass;
             self.camera.target = center;
         }
+        self.stats.momentum = momentum;
+        self.stats.mass = mass;
+        self.stats.center = center;
 
         let v = self.viewport();
         self.draws = 0;
@@ -71,45 +127,39 @@ impl World {
 
     pub fn update(&mut self, dt: f32) {
         let n = self.bodies.len();
-        self.bodies.reserve(self.bodies.len() / 10);
+        let mut new_bodies = Vec::with_capacity(n / 10);
+        let ptr = self.bodies.as_mut_ptr();
+        let mut rng = fastrand::Rng::new();
         for i in 0..n {
             for j in (i + 1)..n {
-                let mut nb1: Option<Body> = None;
-                let mut nb2: Option<Body> = None;
-                {
-                    let (left, right) = self.bodies.split_at_mut(j);
-                    let b1 = &mut left[i];
-                    let b2 = &mut right[0];
+                unsafe {
+                    let b1 = &mut *ptr.add(i);
+                    let b2 = &mut *ptr.add(j);
                     let gravity = gravity(b1, b2);
                     b1.apply_force(gravity, dt);
                     b2.apply_force(-gravity, dt);
-                    if self.settings.tidal {
+                    if self.settings.tidal && n < 1000 && rng.u32(0..10) < 1 {
                         let dist = b1.p.distance(b2.p);
-                        let roche_b1 = b2.r * (2.0 * b2.rho / b1.rho).powf(1.0 / 3.0);
-                        let roche_b2 = b1.r * (2.0 * b1.rho / b2.rho).powf(1.0 / 3.0);
+                        let roche_b1 = b2.r * (2.0 * b2.rho / b1.rho).cbrt();
+                        let roche_b2 = b1.r * (2.0 * b1.rho / b2.rho).cbrt();
                         let split_b1 = dist < roche_b1;
                         let split_b2 = dist < roche_b2;
-                        if split_b1 {
-                            nb1 = Some(b1.split_against(b2));
+                        if split_b1 && b1.r > 0.005 {
+                            new_bodies.push(b1.split_against(b2));
                         }
-                        if split_b2 {
-                            nb2 = Some(b2.split_against(b1));
+                        if split_b2 && b2.r > 0.005 {
+                            new_bodies.push(b2.split_against(b1));
                         }
                     }
                 }
-                if let Some(new_body) = nb1 {
-                    self.bodies.push(new_body);
-                }
-                if let Some(new_body) = nb2 {
-                    self.bodies.push(new_body);
-                }
             }
         }
+        self.bodies.extend(new_bodies);
         if self.settings.collisions {
             self.handle_collisions();
         }
     }
-
+    #[inline(always)]
     fn handle_collisions(&mut self) {
         let mut i = 0;
         while i < self.bodies.len() {
@@ -128,6 +178,8 @@ impl World {
             i += 1;
         }
     }
+
+    #[inline(always)]
     fn viewport(&self) -> Rect {
         let tl = self.camera.screen_to_world(Vec2::new(0., 0.));
         let br = self
@@ -135,8 +187,24 @@ impl World {
             .screen_to_world(Vec2::new(screen_width(), screen_height()));
         Rect::new(tl.x, tl.y, br.x - tl.x, br.y - tl.y)
     }
-
+    #[inline(always)]
     pub fn add_body(&mut self, body: Body) {
         self.bodies.push(body);
     }
+}
+
+const TOTAL: usize = 8;
+#[inline(always)]
+fn fmt_coord(v: f32) -> String {
+    let int_len = format!("{}", v.trunc() as i32).len();
+    format!(
+        "{:>width$.prec$}",
+        v,
+        width = TOTAL,
+        prec = if TOTAL > int_len + 1 {
+            TOTAL - int_len - 1
+        } else {
+            0
+        }
+    )
 }

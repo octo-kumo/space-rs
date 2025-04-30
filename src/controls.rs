@@ -3,13 +3,15 @@ use crate::world::World;
 use macroquad::prelude::*;
 
 pub struct CameraControls {
-    d: bool,  // dragging
-    sp: Vec2, // start position
-    tz: f32,  // target zoom
-    z: f32,   // current zoom
-    adding: bool,
-    add_start: Vec2, // start position (world)
-    add_end: Vec2,   // end position (world)
+    d: bool,     // dragging
+    sp: Vec2,    // start position
+    tz: f32,     // target zoom
+    z: f32,      // current zoom
+    a: bool,     // adding
+    sa: Vec2,    // start position (world)
+    ea: Vec2,    // end position (world)
+    pub am: f32, // mass
+    pub ar: f32, // radius
 }
 
 impl CameraControls {
@@ -19,9 +21,11 @@ impl CameraControls {
             sp: Vec2::ZERO,
             tz: 1.0,
             z: 1.0,
-            adding: false,
-            add_start: Vec2::ZERO,
-            add_end: Vec2::ZERO,
+            a: false,
+            sa: Vec2::ZERO,
+            ea: Vec2::ZERO,
+            am: 0.1,
+            ar: 0.1,
         }
     }
 
@@ -46,7 +50,7 @@ impl CameraControls {
             self.d = true;
             self.sp = Vec2::from(mouse_position());
         }
-        if is_mouse_button_released(MouseButton::Middle) {
+        if self.d && is_mouse_button_released(MouseButton::Middle) {
             self.d = false;
         }
         if self.d && is_mouse_button_down(MouseButton::Middle) {
@@ -58,18 +62,35 @@ impl CameraControls {
 
     pub fn handle_add(&mut self, world: &mut World) {
         if is_mouse_button_pressed(MouseButton::Left) {
-            self.adding = true;
-            self.add_start = world.camera.screen_to_world(Vec2::from(mouse_position()));
+            self.a = true;
+            self.sa = world.camera.screen_to_world(Vec2::from(mouse_position()));
         }
-        if is_mouse_button_released(MouseButton::Left) {
-            self.add_end = world.camera.screen_to_world(Vec2::from(mouse_position()));
-            self.adding = false;
-            let v = self.add_end - self.add_start;
-            let body = Body::new(self.add_start.x, self.add_start.y, v.x, v.y, 0.1, 0.1);
+        if self.a && is_mouse_button_pressed(MouseButton::Right) {
+            self.a = false;
+        }
+        if self.a && is_mouse_button_released(MouseButton::Left) {
+            self.a = false;
+            self.ea = world.camera.screen_to_world(Vec2::from(mouse_position()));
+            let v = self.ea - self.sa;
+            let body = Body::new(self.sa.x, self.sa.y, v.x, v.y, self.am, self.ar);
             world.add_body(body);
         }
-        if self.adding && is_mouse_button_down(MouseButton::Left) {
-            self.add_end = world.camera.screen_to_world(Vec2::from(mouse_position()));
+        if self.a && is_mouse_button_down(MouseButton::Left) {
+            self.ea = world.camera.screen_to_world(Vec2::from(mouse_position()));
         }
+    }
+
+    pub fn draw_add(&self) {
+        if self.a {
+            let p1 = self.sa;
+            let p2 = self.ea;
+            draw_line(p1.x, p1.y, p2.x, p2.y, 0.01, WHITE);
+            draw_circle_lines(p1.x, p1.y, self.ar, 0.01, WHITE);
+        }
+    }
+
+    pub fn cancel_all(&mut self) {
+        self.a = false;
+        self.d = false;
     }
 }
