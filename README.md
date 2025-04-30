@@ -12,3 +12,5 @@ Space RS is a 2D N-body simulation game written in rust.
 4. Scroll to zoom in and out.
 
 :youtube{vid="ch8ig_aDqTE"}
+
+![](img.png)
