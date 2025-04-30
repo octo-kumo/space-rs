@@ -37,7 +37,7 @@ async fn main() {
         set_default_camera();
         draw_fps();
         if !world.draw_ui() {
-            if !Rect::new(0., 100., 200., 40.).contains(Vec2::from(mouse_position())) {
+            if !Rect::new(0., 100., 200., 60.).contains(Vec2::from(mouse_position())) {
                 pan.handle_zoom(&mut world.camera);
                 pan.handle_pan(&mut world.camera);
                 pan.handle_add(&mut world);

@@ -11,6 +11,8 @@ pub struct Settings {
     pub follow: bool,
     pub n_mass: String,
     pub n_radius: String,
+    pub n_cap: String,
+    _n_cap: usize,
 }
 pub struct Statistics {
     pub momentum: Vec2,
@@ -40,6 +42,8 @@ impl World {
                 follow: false,
                 n_mass: String::from("0.1"),
                 n_radius: String::from("0.1"),
+                n_cap: String::from("1000"),
+                _n_cap: 1000,
             },
             stats: Statistics {
                 momentum: vec2(0., 0.),
@@ -81,18 +85,24 @@ impl World {
             self.settings.follow = !self.settings.follow;
             handled = true;
         }
-        let in_m = InputText::new(hash!());
-        in_m.filter_numbers()
+        InputText::new(hash!())
+            .filter_numbers()
             .label("mass")
             .position(vec2(0., 100.))
             .size(vec2(200., 20.))
             .ui(&mut root_ui(), &mut self.settings.n_mass);
-        let in_r = InputText::new(hash!());
-        in_r.filter_numbers()
+        InputText::new(hash!())
+            .filter_numbers()
             .label("radius")
             .position(vec2(0., 100.))
             .size(vec2(200., 20.))
             .ui(&mut root_ui(), &mut self.settings.n_radius);
+        InputText::new(hash!())
+            .filter_numbers()
+            .label("soft n-cap")
+            .position(vec2(0., 100.))
+            .size(vec2(200., 20.))
+            .ui(&mut root_ui(), &mut self.settings.n_cap);
 
         root_ui().pop_skin();
         handled
@@ -130,6 +140,12 @@ impl World {
         let mut new_bodies = Vec::with_capacity(n / 10);
         let ptr = self.bodies.as_mut_ptr();
         let mut rng = fastrand::Rng::new();
+        self.settings._n_cap = self
+            .settings
+            .n_cap
+            .parse::<usize>()
+            .unwrap_or(self.settings._n_cap);
+        let n_cap = self.settings._n_cap;
         for i in 0..n {
             for j in (i + 1)..n {
                 unsafe {
@@ -138,7 +154,7 @@ impl World {
                     let gravity = gravity(b1, b2);
                     b1.apply_force(gravity, dt);
                     b2.apply_force(-gravity, dt);
-                    if self.settings.tidal && n < 1000 && rng.u32(0..10) < 1 {
+                    if self.settings.tidal && n < n_cap && rng.u32(0..10) < 1 {
                         let dist = b1.p.distance(b2.p);
                         let roche_b1 = b2.r * (2.0 * b2.rho / b1.rho).cbrt();
                         let roche_b2 = b1.r * (2.0 * b1.rho / b2.rho).cbrt();
