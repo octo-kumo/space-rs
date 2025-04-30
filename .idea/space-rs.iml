@@ -8,5 +8,6 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="mq_js_bundle" level="application" />
+    <orderEntry type="library" name="script" level="application" />
   </component>
 </module>
