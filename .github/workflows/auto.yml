@@ -1,0 +1,35 @@
+name: Build and Deploy WASM
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain with WASM target
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+
+      - name: Build release WASM
+        run: cargo build --release --target wasm32-unknown-unknown
+
+      - name: Prepare publish directory
+        run: |
+          mkdir -p public
+          cp ./target/wasm32-unknown-unknown/release/space-rs.wasm public/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          force_orphan: true
